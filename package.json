@@ -1,0 +1,50 @@
+{
+  "dependencies": {
+    "express": "^5.2.1",
+    "run-p": "^0.0.0",
+    "vue": "^3.5.42",
+    "vue-tsc": "^3.3.11",
+    "websocket": "^1.0.35",
+    "websockets": "^0.2.0"
+  },
+  "devDependencies": {
+    "@babel/plugin-transform-typescript": "^8.0.1",
+    "@types/express": "^5.0.6",
+    "@types/websocket": "^1.0.10",
+    "@vitejs/plugin-vue": "^6.0.8",
+    "@vitejs/plugin-vue-jsx": "^5.1.6",
+    "@vue/compiler-sfc": "^3.5.42",
+    "cpy-cli": "^7.0.0",
+    "css-loader": "^7.1.5",
+    "install": "^0.13.0",
+    "npm-run-all2": "^9.0.3",
+    "style-loader": "^4.0.0",
+    "ts-loader": "^9.6.2",
+    "typescript": "^6.0.3",
+    "vue-loader": "^17.4.2",
+    "webpack": "^5.110.3",
+    "webpack-cli": "^7.2.3"
+  },
+  "name": "chat",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "server": "node dist/server.js",
+    "dev": "vite",
+    "build": "npx webpack --no-cache && run-p type-check \"build-only {@}\" --",
+    "build-only": "vite build",
+    "test": "ts-node-dev --respawn src/index.ts",
+    "start": "node server.js",
+    "type-check": "vue-tsc --build"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "allowScripts": {
+    "es5-ext@0.10.64": true,
+    "bufferutil@4.1.0": true,
+    "utf-8-validate@5.0.10": true
+  }
+}
