@@ -1,13 +1,16 @@
 import { logger } from "./logger";
+type Nullable<T> = T | null;
 
 export class WebSocketer {
     public connection: WebSocket;
+    private _logger: Nullable<logger> = null;
 
-    constructor(log: logger) {
+    constructor() { this.connection = new WebSocket('ws://localhost:3000', 'echo-protocol'); }
+
+    set logger(log: logger) {
+        this._logger = log;
+
         let Log = log.log;
-        this.connection = new WebSocket('ws://localhost:3000', 'echo-protocol');
-
-        let sendButton: HTMLButtonElement = document.getElementById('sendButton') as HTMLButtonElement;
 
         this.connection.onopen = (): void => {
             Log('Connected to the WebSocket server');
@@ -22,23 +25,18 @@ export class WebSocketer {
         };
 
         this.connection.onerror = (error: Event): void => {
-            Log('WebSocket error occurred.');
+            Log('WebSocket error occurred.', false);
             console.error(error);
         };
-
-        sendButton.addEventListener('click', () => {
-            const messageInput: HTMLInputElement = document.getElementById('messageInput') as HTMLInputElement;
-            const text = messageInput.value.trim();
-            if (text && this.connection.readyState === WebSocket.OPEN) {
-                this.connection.send(text);
-                Log('Sent: ' + text);
-                messageInput.value = '';
-            } else {
-                Log('WebSocket is not connected.');
-            }
-        });
     }
 
-
-    
+    public SendMessage(text: string): void {
+        text = text.trim();
+        if (text && this.connection.readyState === WebSocket.OPEN) {
+            this.connection.send(text);
+            if (this._logger != null) this._logger.log('Sent: ' + text);
+        } else {
+            if (this._logger != null) this._logger.log('WebSocket is not connected.');
+        }
+    }
 }

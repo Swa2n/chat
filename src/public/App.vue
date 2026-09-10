@@ -1,35 +1,48 @@
-<script setup>
-import { onMounted, onUnmounted, ref } from 'vue';
+<script setup lang="ts">
+import "./components/interface"
+import { ref, type Ref, onMounted, onUnmounted, inject } from 'vue';
 import { logger } from './components/logger';
+import './assets/main.css';
+import { AppStartData } from "./components/interface";
 
-const count = ref(0)
+const sendToTs = inject<(data: string) => void>('sendToTs');
 
-document.addEventListener("DOMContentLoaded", () => {
-let log = new logger(document.getElementById("log"));
+const emit = defineEmits(['messageSent'])
 
-function handleGlobalKey(event) {
-  if (event.ctrlKey && event.key == 'l') {
+const count = ref(0);
+const logElement = ref(document.createElement("dl"));
+
+let ws;
+
+let logg: logger;
+
+function globalHotKey (event: KeyboardEvent) {
+  if (event.ctrlKey && event.key === '/') {
     event.preventDefault();
-    log.toggleVisibility();
-    console.log('Global shortcut triggered!');
+    logg.toggleVisibility();
   }
 }
 
 onMounted(() => {
-  window.addEventListener('keydown', handleGlobalKey);
-})
+  logg = new logger(logElement.value);
+  window.addEventListener('AppStart', (event) => {
+    const ahh = event as CustomEvent;
+    const ahhh = ahh.detail as AppStartData;
+    console.log(ahhh)
+    ws = event;
+    // ws.logger = logg;
+  })
+  window.addEventListener('keydown', globalHotKey);
+});
 
 onUnmounted(() => {
-  window.removeEventListener('keydown', handleGlobalKey);
-})
+  window.removeEventListener('keydown', globalHotKey);
 })
 </script>
 
 <template>
   <button @click="count++">Count is: {{ count }}</button><br>
   <input type="text" id="messageInput" placeholder="Type a message..." /><br>
-  <button id="sendButton">Send</button>
-  <ul id="log"></ul>
+  <button @click="" id="sendButton">Send</button>
+  <dl ref="logElement" id="log"></dl>
 </template>
-
-<link rel="stylesheet" href="./assets/main.css">

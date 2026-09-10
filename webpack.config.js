@@ -27,7 +27,7 @@ module.exports = {
   },
   plugins: [
     new VueLoaderPlugin(),
-    // Fixes the Vue feature flags warning
+    
     new webpack.DefinePlugin({
       __VUE_OPTIONS_API__: JSON.stringify(true),
       __VUE_PROD_DEVTOOLS__: JSON.stringify(false),
