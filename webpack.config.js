@@ -1,5 +1,5 @@
 const path = require('path');
-const webpack = require('webpack'); // Required for DefinePlugin
+const webpack = require('webpack');
 const { VueLoaderPlugin } = require('vue-loader');
 
 module.exports = {

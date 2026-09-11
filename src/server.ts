@@ -1,7 +1,8 @@
 import express, { Request, Response } from 'express';
 import path from 'path';
 import http from 'http';
-import { server as WebSocketServer, connection, request as WSRequest } from 'websocket';
+import { socketMessageData } from "./public/components/interface";
+import { server as WebSocketServer, connection, request as WSRequest, client } from 'websocket';
 
 const app = express();
 const PORT = 3000;
@@ -29,14 +30,18 @@ wsServer.on('request', function(request: WSRequest) {
     console.log('Connection accepted.');
     
     connection.on('message', function(message) {
-        if (message.type === 'utf8') {
-            console.log('Received Message: ' + message.utf8Data);
-            connection.sendUTF(message.utf8Data);
-        }
-        else if (message.type === 'binary' && message.binaryData) {
-            console.log('Received Binary Message of ' + message.binaryData.length + ' bytes');
-            connection.sendBytes(message.binaryData);
-        }
+        if (message.type != "utf8") return;
+        const clientMes = JSON.parse(message.utf8Data) as socketMessageData;
+
+        const Message: socketMessageData = {
+            type: "sendMessage",
+            data: {
+                author: clientMes.data.author,
+                message: clientMes.data.message
+            }
+        };
+
+        wsServer.broadcast(JSON.stringify(Message));
     });
     
     connection.on('close', function() {

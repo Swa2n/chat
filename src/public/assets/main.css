@@ -3,8 +3,21 @@
   visibility: hidden;
   top: 0;
   left: 0;
+  max-height: 80%;
+  overflow-y: auto; 
+  border: 1px solid #ccc;
+  padding: 2%; 
+}
+
+#chat {
+  max-height: 80vh;
 }
 
 button {
   font-weight: bold;
+}
+
+dl, dt, dd {
+  list-style: none;
+  list-style-type: none;
 }

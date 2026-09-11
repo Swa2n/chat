@@ -1,20 +1,21 @@
 import { createApp, ref } from 'vue'
+import { Socket } from './components/WebSocket';
 import App from './App.vue'
-import { WebSocketer } from './components/WebSocket';
+import 'bootstrap/dist/css/bootstrap.min.css'
+import 'bootstrap/dist/js/bootstrap.bundle.min.js'
 
-const ws = new WebSocketer;
+const ws = new Socket;
 const app = createApp(App);
 
-const handleDataFromVue = (data: string) => {
-  console.log('Received in .ts file:', data)
-}
+const setUserName = (data: string) => {}
 
-app.provide('sendToTs', handleDataFromVue)
+const sendMessageToServer = (data: string) => { ws.SendMessage(data); }
+app.provide('sendMessageToServer', sendMessageToServer)
 
 app.mount('#app')
 
 window.dispatchEvent(new CustomEvent('AppStart', {
     detail: {
-        websocket: ws
+        socket: ws
     }
 }));
