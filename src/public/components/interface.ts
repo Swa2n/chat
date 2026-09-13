@@ -1,21 +1,35 @@
 import { Socket } from './WebSocket';
+import { user } from './user';
 
-export type socketDataType = "setUsername" | "sendMessage"
+export type socketDataType = "setUser" | "sendMessage"
 export interface socketMessageData {
     type: socketDataType,
-    data: MessageData //you can use '|' to continue this
+    data: messageData | changeUserData
 }
 
-export interface MessageData {
-    author: string, //lowk i might need to change this later to connect to user profile
+export interface changeUserData {
+    name: string
+}
+
+export interface loginRequestData {
+    username: string,
+    password: string
+}
+
+export interface loginData {
+    user: user
+}
+
+export interface messageData {
+    author: user,
     message: string
 }
 
-export interface AppStartData {
+export interface appStartData {
     socket: Socket,
 }
 
-export interface LogData {
+export interface logData {
     message: string,
     args: any[]
 }

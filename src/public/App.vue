@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import "./assets/main.css";
-import { logger } from './components/logger';
 import { Socket } from "./components/WebSocket";
-import { AppStartData } from "./components/interface";
+import { appStartData } from "./components/interface";
 import { ref, type Ref, onMounted, onUnmounted, inject } from 'vue';
 
 const sendMessageToServer = inject<(data: string) => void>('sendMessageToServer');
@@ -10,37 +9,49 @@ const sendMessageToServer = inject<(data: string) => void>('sendMessageToServer'
 const emit = defineEmits(['messageSent'])
 
 const count = ref(0);
-const logElement = ref<HTMLDListElement | null>(null);
-const messageInput = ref<HTMLInputElement | null>(null);
+const messageInput = ref<HTMLInputElement>();
+const usernameInput = ref<HTMLInputElement>();
+const passwordInput = ref<HTMLInputElement>();
+const signup = ref<HTMLInputElement>();
+const login = ref<HTMLInputElement>();
 
 let socket: Socket;
-
-let logg: logger;
 
 function globalHotKey(event: KeyboardEvent) {
   if (event.ctrlKey && event.key === '/') {
     event.preventDefault();
-    logg.toggleVisibility();
   }
 }
 
-function SendMessage() {
-  if (sendMessageToServer && messageInput.value) sendMessageToServer(messageInput.value?.value);
+async function handleInput() {
+  if (!socket || !messageInput.value || !sendMessageToServer || socket.user.isGuest) return;
+  sendMessageToServer(messageInput.value?.value);
+
+  messageInput.value.value = "";
+}
+
+async function log_in() {
+  if (!socket || !usernameInput.value || !passwordInput.value || !socket.user.isGuest) return;
+  await socket.connect(usernameInput.value.value, passwordInput.value.value, true);
+}
+
+async function sign_up() {
+  if (!socket || !usernameInput.value || !passwordInput.value || !socket.user.isGuest) return;
+  await socket.connect(usernameInput.value.value, passwordInput.value.value, false);
 }
 
 onMounted(() => {
-  console.log(logElement)
-  if (logElement.value) logg = new logger(logElement.value);
-
   window.addEventListener('AppStart', (event) => {
     const customEvent = event as CustomEvent;
-    const detail = customEvent.detail as AppStartData;
+    const detail = customEvent.detail as appStartData;
     socket = detail.socket;
-    socket.logger = logg;
   })
   window.addEventListener('keydown', globalHotKey);
 
-  if (messageInput.value) messageInput.value.placeholder = "Type a message...";
+  messageInput.value?.addEventListener('keypress', (event) => {
+    if (event.key == 'Enter') handleInput();
+    
+  });
 });
 
 onUnmounted(() => {
@@ -49,9 +60,15 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <button @click="count++">Count is: {{ count }}</button><br>
-  <input type="text" ref="messageInput" id="messageInput" placeholder="Send a name..." /><br>
-  <button @click="SendMessage" id="sendButton">Send</button>
-  <dl ref="chat" id="chat" class="container mt-5 row overflow-auto"></dl>
-  <dl ref="logElement" id="log"></dl>
+  <!-- <button @click="count++">Count is: {{ count }}</button><br> -->
+  <div id="preloginDiv" ref="preloginDiv" class="mainDiv">
+    <input type="text" ref="usernameInput" class="prelogin" placeholder="enter your username">
+    <input type="text" ref="passwordInput" class="prelogin" placeholder="enter your password"><br>
+    <input type="button" @click="log_in" ref="login" class="prelogin" value="log-in">
+    <input type="button" @click="sign_up" ref="signup" class="prelogin" value="sign-up">
+  </div>
+  <div id="postloginDiv" ref="postloginDiv" class="mainDiv" style="visibility: hidden;">
+    <input type="text" ref="messageInput" id="messageInput" class="postlogin" placeholder="Send a message..."/><br>
+    <dl ref="chat" id="chat" class="container mt-5 overflow-auto"></dl>
+  </div>
 </template>

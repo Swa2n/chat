@@ -1,57 +1,98 @@
-import { logger } from "./logger";
-import { MessageData, socketMessageData } from "./interface"
-import { json } from "stream/consumers";
+import { changeUserData as setUserData, messageData, socketMessageData, loginRequestData } from "./interface"
+import { user } from "./user";
+
 type Nullable<T> = T | null;
 
 export class Socket {
-    public connection: WebSocket;
-    private _logger: Nullable<logger> = null;
+    public connection: Nullable<WebSocket> = null;
+    private _user: user;
 
     constructor() {
-        const isSecure = window.location.protocol == "https:";
-        const protocol = isSecure ? "wss:" : "ws:";
-        const host = window.location.host;
-        const socketUrl = `${protocol}//${host}`;
-        this.connection = new WebSocket(socketUrl, 'echo-protocol'); 
+        this._user = new user();
     }
 
-    set logger(log: logger) {
-        this._logger = log;
+    public async connect(name: string, password: string, logingin: boolean) {
+        if (this.connection) return;
 
-        let Log = log.log;
+        name = name.trim();
+        if (!name) return;
 
-        this.connection.onopen = (): void => { Log('Connected to the WebSocket server'); };
+        if (!this._user.isGuest) {
+            console.log("Username has already been set: ", [name])
+            return;
+        }
+
+        const message: loginRequestData = {
+            username: name,
+            password: password
+        }
+
+        let accountRequest;
+        if (logingin)
+            accountRequest = await fetch("/api/login", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(message)
+            });
+        else
+            accountRequest = await fetch("/api/signup", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(message)
+            });
+
+        const login = await accountRequest.json()
+        console.log(login)
+        
+        this._user = login.user
+
+        const isSecure = window.location.protocol == "https:";
+        const protocol = isSecure ? "wss:" : "ws:";
+        const socketUrl = `${protocol}//${window.location.host}`;
+        this.connection = new WebSocket(socketUrl, 'echo-protocol'); 
+
+        this.connection.onopen = (): void => { console.log('Connected to the WebSocket server'); };
 
         this.connection.onmessage = (event: MessageEvent): void => {
             const messageData = JSON.parse(event.data) as socketMessageData;
             if (messageData.type == "sendMessage"){
-                const mesData = messageData.data as MessageData;
+                const mesData = messageData.data as messageData;
 
                 const chat = document.getElementById('chat') as HTMLDListElement;
                 console.log(event);
 
                 const author = document.createElement('li');
-                author.textContent = mesData.author;
-                author.classList.add("col-sm-3");
+                author.classList.add("list-inline-item");
+                author.textContent = mesData.author.name + ": ";
                 chat.appendChild(author);
 
                 const message = document.createElement('li');
+                message.classList.add("list-inline-item");
                 message.textContent = mesData.message;
-                message.classList.add("col-sm-9");
                 chat.appendChild(message);
-                Log('Received from server: ' + event.data); 
+
+                chat.appendChild(document.createElement("br"));
             }
         };
-
-        this.connection.onclose = (event: CloseEvent): void => { Log('Connection closed: ' + event.reason); };
-
         this.connection.onerror = (error: Event): void => {
-            Log('WebSocket error occurred, check browser console for more infomation.');
             console.error(error);
         };
+        const pre = document.getElementById("preloginDiv");
+        if (pre) pre.style.visibility = "hidden";
+        const pos = document.getElementById("postloginDiv");
+        if (pos) pos.style.visibility = "visible";
+    }
+
+    get user(): user {
+        return this._user;
     }
 
     public setUserName(name: string): void {
+        if (!this.connection) return;
         name = name.trim();
         if (name && this.connection.readyState == WebSocket.OPEN) {
             this.connection.send(name);
@@ -59,13 +100,14 @@ export class Socket {
     }
 
     public SendMessage(text: string): void {
+        if (!this.connection) return;
         text = text.trim();
         if (text && this.connection.readyState == WebSocket.OPEN) {
-            const data: socketMessageData = { type: "sendMessage", data: { author: "cool", message: text }};
+            const data: socketMessageData = { type: "sendMessage", data: { author: this._user, message: text }};
             this.connection.send(JSON.stringify(data));
-            if (this._logger != null) this._logger.log('Sent: ' + text);
+            console.log('Sent: ' + text);
         } else {
-            if (this._logger != null) this._logger.log('WebSocket is not connected.');
+            console.log('WebSocket is not connected.');
         }
     }
 }
