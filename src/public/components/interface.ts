@@ -1,14 +1,15 @@
 import { Socket } from './WebSocket';
 import { user } from './user';
 
-export type socketDataType = "setUser" | "sendMessage"
+export type socketDataType = "initialPayload" | "sendMessage" | "error"
 export interface socketMessageData {
     type: socketDataType,
-    data: messageData | changeUserData
+    data: messageData | websocketStartData | string
 }
 
-export interface changeUserData {
-    name: string
+export interface refreshTokenData {
+    userId: string,
+    oldToken: string
 }
 
 export interface loginRequestData {
@@ -16,8 +17,9 @@ export interface loginRequestData {
     password: string
 }
 
-export interface loginData {
-    user: user
+export interface websocketStartData {
+    user: user,
+    jwtToken: string
 }
 
 export interface messageData {

@@ -1,4 +1,4 @@
-import { changeUserData as setUserData, messageData, socketMessageData, loginRequestData } from "./interface"
+import { messageData, socketMessageData, loginRequestData, websocketStartData, refreshTokenData } from "./interface"
 import { user } from "./user";
 
 type Nullable<T> = T | null;
@@ -28,37 +28,45 @@ export class Socket {
         }
 
         let accountRequest;
-        if (logingin)
-            accountRequest = await fetch("/api/login", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify(message)
-            });
-        else
-            accountRequest = await fetch("/api/signup", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify(message)
-            });
+        const url: string = (logingin) ? "/api/auth/login" : "/api/auth/signup";
+        accountRequest = await fetch(url, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(message)
+        });
 
-        const login = await accountRequest.json()
+        const login = await accountRequest.json() as websocketStartData
         console.log(login)
-        
+
         this._user = login.user
+
+        localStorage.setItem("socketToken", login.jwtToken);
 
         const isSecure = window.location.protocol == "https:";
         const protocol = isSecure ? "wss:" : "ws:";
-        const socketUrl = `${protocol}//${window.location.host}`;
-        this.connection = new WebSocket(socketUrl, 'echo-protocol'); 
-
+        const socketUrl = `${protocol}//${window.location.host}?userId=${login.user.userId}&token=${login.jwtToken}`;
+        this.connection = new WebSocket(socketUrl, ['echo-protocol']); 
         this.connection.onopen = (): void => { console.log('Connected to the WebSocket server'); };
 
-        this.connection.onmessage = (event: MessageEvent): void => {
+        this.connection.onmessage = async (event: MessageEvent): Promise<void> => {
             const messageData = JSON.parse(event.data) as socketMessageData;
+            if (messageData.type == "error" && messageData.data == "expired-token") {
+                const tokenRequest = await fetch("/api/auth/refresh", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({userId: this._user.userId, oldToken: localStorage.getItem("socketToken")} as refreshTokenData)
+                })
+                const response = await tokenRequest.json()
+                if (response.socketToken) {
+                    localStorage.setItem("socketToken", response.socketToken);
+                    console.log("New token got!");
+                }
+            }
+
             if (messageData.type == "sendMessage"){
                 const mesData = messageData.data as messageData;
 
@@ -78,6 +86,7 @@ export class Socket {
                 chat.appendChild(document.createElement("br"));
             }
         };
+
         this.connection.onerror = (error: Event): void => {
             console.error(error);
         };
