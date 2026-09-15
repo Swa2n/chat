@@ -1,21 +1,19 @@
-import { websocketStartData, messageData } from "../public/components/interface";
-import { socketMessageData, loginRequestData } from "../public/components/interface";
+import { user, socketMessageData, loginRequestData, websocketStartData, messageData } from "../public/components/interface";
 import { connection } from 'websocket';
 import { Request, Response } from 'express';
-import { user } from "../public/components/user";
-import { userData } from "./serverInterface";
+import { userData, headerCookie } from "./serverInterface";
 import jwt from "jsonwebtoken";
 type Nullable<T> = T | null;
 
-export function findUser(userData: Record<string, userData>, username: string): user | undefined {
+export function findUser(userData: Record<string, userData>, username: string): userData | undefined {
     const allUsers = Object.values(userData);
     const FoundIndex = allUsers.find(user => user.user.name == username);
-    return FoundIndex?.user;
+    return FoundIndex;
 }
 
-export function handleLogin(userData: Record<string, userData>, req: Request, res: Response, jwtKey: string) {
+export function handleLogin(allUserData: Record<string, userData>, req: Request, res: Response, jwtKey: string) {
     const body = req.body as loginRequestData;
-    const foundUser = findUser(userData, body.username);
+    const foundUser = findUser(allUserData, body.username);
 
     let Response;
     if (!foundUser)
@@ -23,15 +21,23 @@ export function handleLogin(userData: Record<string, userData>, req: Request, re
     else if (body.password != foundUser.password)
         Response = { type: "error", data: "incorrect password" } as socketMessageData
     else {
-        const userId: string = foundUser.userId;
-        const token = jwt.sign(userData[userId].user, jwtKey, {expiresIn: 900})
-        userData[userId].validSignInToken = token;
-        Response = { jwtToken: token, user: foundUser } as websocketStartData
+        const userData = allUserData[foundUser.user.userId];
+        const refreshToken = crypto.randomUUID();
+        const token = jwt.sign(JSON.parse(JSON.stringify(userData)).user, jwtKey, {expiresIn: 900})
+        userData.validSignInToken = token;
+
+        const cookiePayload: headerCookie = {
+            refreshToken: refreshToken,
+            user: userData.user
+        };
+        res.setHeader('Set-Cookie', `cookie=${JSON.stringify(cookiePayload)}; Path=/; HttpOnly; Secure; SameSite=Strict`);
+        
+        Response = { jwtToken: token, user: foundUser.user } as websocketStartData
     }
     res.status(200).json(Response);
 }
 
-export function handelSignup(allUserData: Record<string, userData>, req: Request, res: Response, jwtKey: string) {
+export function handleSignup(allUserData: Record<string, userData>, req: Request, res: Response, jwtKey: string) {
     const body = req.body as loginRequestData;
     const foundUser = findUser(allUserData, body.username);
 
@@ -42,15 +48,25 @@ export function handelSignup(allUserData: Record<string, userData>, req: Request
         Response = { type: "error", data: "user already exists" } as socketMessageData;
     else {
         const userId: string = crypto.randomUUID();
-        allUserData[userId] = { 
-            user: new user(userId, req.body.username, req.body.password),
-            validSignInToken: "", 
+        allUserData[userId] = {
+            user: new user(userId, req.body.username),
+            password: req.body.password,
+            validSignInToken: "",
+            validRefreshTokens: new Map<string, connection>(),
             validTokenConnection: new Map<string, connection>()
         } as userData;
-        const token = jwt.sign(JSON.parse(JSON.stringify(allUserData[userId].user)), jwtKey, {expiresIn: 1})
+        const userData = allUserData[userId];
+
+        const token = jwt.sign(JSON.parse(JSON.stringify(userData.user)), jwtKey, {expiresIn: 5})
         const refreshToken = crypto.randomUUID();
-        allUserData[userId].validSignInToken = token;
-        res.setHeader('Set-Cookie', `sessionToken=${refreshToken}; Path=/; HttpOnly; Secure; SameSite=Strict`);
+        userData.validSignInToken = token;
+
+        const cookiePayload: headerCookie = {
+            refreshToken: refreshToken,
+            user: userData.user
+        };
+
+        res.setHeader('Set-Cookie', `cookie=${JSON.stringify(cookiePayload)}; Path=/; HttpOnly; Secure; SameSite=Strict`);
         Response = { jwtToken: token, user: allUserData[userId].user };
     }
     res.status(200).json(Response);

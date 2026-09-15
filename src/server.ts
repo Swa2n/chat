@@ -1,13 +1,11 @@
-import { user } from "./public/components/user"
-import { handleMessage, handleLogin, handelSignup } from "./server/userHandlers";
+import { handleMessage, handleLogin, handleSignup } from "./server/userHandlers";
 import express, { Request, Response } from 'express';
 import path from 'path';
 import http from 'http';
-import { refreshTokenData, socketMessageData } from "./public/components/interface";
-import { userData } from "./server/serverInterface";
-import { server as WebSocketServer, connection, request as WSRequest, client } from 'websocket';
+import { socketMessageData } from "./public/components/interface";
+import { headerCookie, userData } from "./server/serverInterface";
+import { server as WebSocketServer, connection, request as WSRequest } from 'websocket';
 import jwt from "jsonwebtoken";
-import url from 'url'
 
 const jwtKey: string = crypto.randomUUID();
 
@@ -31,29 +29,44 @@ app.post('/api/auth/login', async (req: Request, res: Response) => {
 })
 
 app.post('/api/auth/signup', async (req: Request, res: Response) => {
-    const data = await handelSignup(allUserData, req, res, jwtKey);
+    await handleSignup(allUserData, req, res, jwtKey);
 })
 
-app.post('/api/auth/refresh', (req: Request, res: Response) => {
-    // const refreshToken = req.cookies.refresh_token;
-    const body = req.body as refreshTokenData;
-    if (!allUserData[body.userId]) {
-        
-        return res.status(404).json({ error: "User data not found" });
-    }
-    const newJwt = jwt.sign(JSON.parse(JSON.stringify(allUserData[body.userId].user)), jwtKey, {expiresIn: 10})
-    const tokenMap = allUserData[body.userId].validTokenConnection;
-    const connection = tokenMap.get(body.oldToken);
+app.get('/api/auth/refresh', (req: Request, res: Response) => {
+    const cookieHeader = req.headers.cookie;
+    
+    if (!cookieHeader) return res.status(400).json({ type: "error", data: "gng where your cookies???" } as socketMessageData);
 
-    if (connection) {
-        tokenMap.set(newJwt, connection);
-        tokenMap.delete(body.oldToken);
+    // get the data from the cookie
+    const cookieHead = cookieHeader.split(';').map(c => c.trim());
+    const cookie = cookieHead.find(c => c.startsWith('cookie='));
+    if (!cookie) return res.status(400).json({ type: "error", data: "gng where your cookies???" } as socketMessageData);
+
+    const cookieObject = JSON.parse(cookie.split('=')[1]) as headerCookie;
+
+    const userId = cookieObject.user.userId;
+    const oldToken = cookieObject.refreshToken;
+
+    const userData = allUserData[userId];
+    if (!userData)
+        return res.status(404).json({ error: "User data not found" });
+
+    const tokenMap = allUserData[userId].validTokenConnection;
+
+    const tokenConnection = tokenMap.get(oldToken);
+
+    //check if the connection is the same from the other connection
+    if (tokenConnection && allUserData[userId].validRefreshTokens.get(cookieObject.refreshToken) == tokenConnection) {
+        const newJwt = jwt.sign(JSON.parse(JSON.stringify(allUserData[userId].user)), jwtKey, {expiresIn: 900});
+        //change the key of the connection
+        tokenMap.set(newJwt, tokenConnection);
+        tokenMap.delete(oldToken);
         
         return res.status(200).json({
             socketToken: newJwt
         });
     } else
-        return res.status(400).json({ error: "Active connection not found for old token" });
+        return res.status(400).json({ type: "error", data: "Active connection not found for old token" } as socketMessageData);
 })
 
 function originIsAllowed(): boolean { return true; }
@@ -64,10 +77,11 @@ wsServer.on('request', (request: WSRequest) => {
         console.log('Connection from origin ' + request.origin + ' rejected.');
         return;
     }
+    
+    const query = request.resource.split('?')[1].split('&');
+    const userId = query[0].split('=')[1];
+    const token = query[1].split('=')[1];
 
-    const queryObject = url.parse(request.resource, true).query;
-    const userId = queryObject.userId;
-    let token = queryObject.token;
     if (typeof(token) != "string" || typeof(userId) != "string") {
         request.reject();
         return;
@@ -76,14 +90,17 @@ wsServer.on('request', (request: WSRequest) => {
 
     const FoundIndex = allUsers.find(user => user.user.userId == userId);
     if (!FoundIndex || FoundIndex.validSignInToken != token) {
-        request.reject();
+        request.reject(400, 'Invalid sign in data');
         return;
     }
+    const cookie = request.httpRequest.headers.cookie
+    let refreshToken = "";
+    if (cookie) refreshToken = (JSON.parse(cookie.split('=')[1]) as headerCookie).refreshToken;
+    if (!refreshToken) return request.reject(400, 'Invalid cookies'); 
 
     const connection: connection = request.accept('echo-protocol', request.origin);
     allUserData[userId].validTokenConnection.set(token, connection)
-
-    console.log('Connection accepted.');
+    allUserData[userId].validRefreshTokens.set(refreshToken, connection)
     
     connection.on('message', function(message) {
         if (message.type != "utf8") return;
@@ -117,10 +134,7 @@ wsServer.on('request', (request: WSRequest) => {
     connection.on('close', function() {
         const connections = Object.values(allUserData[userId].validTokenConnection);
         let found = connections.find(fconnection => fconnection == connection);
-
         found = undefined;
-
-        console.log('Peer disconnected.');
     });
 });
 

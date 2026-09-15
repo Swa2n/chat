@@ -2,7 +2,7 @@
 import "./assets/main.css";
 import { Socket } from "./components/WebSocket";
 import { appStartData } from "./components/interface";
-import { ref, type Ref, onMounted, onUnmounted, inject } from 'vue';
+import { ref, onMounted, onUnmounted, inject } from 'vue';
 
 const sendMessageToServer = inject<(data: string) => void>('sendMessageToServer');
 
@@ -12,8 +12,6 @@ const count = ref(0);
 const messageInput = ref<HTMLInputElement>();
 const usernameInput = ref<HTMLInputElement>();
 const passwordInput = ref<HTMLInputElement>();
-const signup = ref<HTMLInputElement>();
-const login = ref<HTMLInputElement>();
 
 let socket: Socket;
 
@@ -24,20 +22,20 @@ function globalHotKey(event: KeyboardEvent) {
 }
 
 async function handleInput() {
-  if (!socket || !messageInput.value || !sendMessageToServer || socket.user.isGuest) return;
+  if (!socket || !messageInput.value || !sendMessageToServer || socket.user.loggedIn) return;
   sendMessageToServer(messageInput.value?.value);
 
   messageInput.value.value = "";
 }
 
 async function log_in() {
-  if (!socket || !usernameInput.value || !passwordInput.value || !socket.user.isGuest) return;
-  await socket.connect(usernameInput.value.value, passwordInput.value.value, true);
+  if (socket && usernameInput.value && passwordInput.value && !socket.user.loggedIn) 
+    await socket.connect(usernameInput.value.value, passwordInput.value.value, true);
 }
 
 async function sign_up() {
-  if (!socket || !usernameInput.value || !passwordInput.value || !socket.user.isGuest) return;
-  await socket.connect(usernameInput.value.value, passwordInput.value.value, false);
+  if (socket && usernameInput.value && passwordInput.value && !socket.user.loggedIn) 
+    await socket.connect(usernameInput.value.value, passwordInput.value.value, false);
 }
 
 onMounted(() => {

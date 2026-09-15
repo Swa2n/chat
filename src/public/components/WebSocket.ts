@@ -1,11 +1,12 @@
 import { messageData, socketMessageData, loginRequestData, websocketStartData, refreshTokenData } from "./interface"
-import { user } from "./user";
+import { user } from "./interface";
 
 type Nullable<T> = T | null;
 
 export class Socket {
     public connection: Nullable<WebSocket> = null;
     private _user: user;
+    private lastSentPacket: object = {};
 
     constructor() {
         this._user = new user();
@@ -16,11 +17,6 @@ export class Socket {
 
         name = name.trim();
         if (!name) return;
-
-        if (!this._user.isGuest) {
-            console.log("Username has already been set: ", [name])
-            return;
-        }
 
         const message: loginRequestData = {
             username: name,
@@ -54,20 +50,18 @@ export class Socket {
             const messageData = JSON.parse(event.data) as socketMessageData;
             if (messageData.type == "error" && messageData.data == "expired-token") {
                 const tokenRequest = await fetch("/api/auth/refresh", {
-                    method: "POST",
+                    method: "GET",
                     headers: {
                         "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({userId: this._user.userId, oldToken: localStorage.getItem("socketToken")} as refreshTokenData)
+                    }
                 })
                 const response = await tokenRequest.json()
                 if (response.socketToken) {
                     localStorage.setItem("socketToken", response.socketToken);
                     console.log("New token got!");
                 }
-            }
-
-            if (messageData.type == "sendMessage"){
+                this.connection?.send(JSON.stringify(this.lastSentPacket));
+            } else if (messageData.type == "sendMessage"){
                 const mesData = messageData.data as messageData;
 
                 const chat = document.getElementById('chat') as HTMLDListElement;
@@ -100,20 +94,13 @@ export class Socket {
         return this._user;
     }
 
-    public setUserName(name: string): void {
-        if (!this.connection) return;
-        name = name.trim();
-        if (name && this.connection.readyState == WebSocket.OPEN) {
-            this.connection.send(name);
-        }
-    }
-
     public SendMessage(text: string): void {
         if (!this.connection) return;
         text = text.trim();
         if (text && this.connection.readyState == WebSocket.OPEN) {
             const data: socketMessageData = { type: "sendMessage", data: { author: this._user, message: text }};
             this.connection.send(JSON.stringify(data));
+            this.lastSentPacket = data;
             console.log('Sent: ' + text);
         } else {
             console.log('WebSocket is not connected.');

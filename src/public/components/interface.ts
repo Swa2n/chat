@@ -1,5 +1,4 @@
 import { Socket } from './WebSocket';
-import { user } from './user';
 
 export type socketDataType = "initialPayload" | "sendMessage" | "error"
 export interface socketMessageData {
@@ -10,11 +9,6 @@ export interface socketMessageData {
 export interface refreshTokenData {
     userId: string,
     oldToken: string
-}
-
-export interface loginRequestData {
-    username: string,
-    password: string
 }
 
 export interface websocketStartData {
@@ -31,7 +25,22 @@ export interface appStartData {
     socket: Socket,
 }
 
-export interface logData {
-    message: string,
-    args: any[]
+export interface loginRequestData {
+    username: string,
+    password: string
+}
+
+export class user {
+    public readonly userId: string;
+    public readonly name: string;
+
+    constructor(userId: string = "-1", name: string = "guest") {
+        this.userId = userId;
+        this.name = name;
+    }
+    
+    get loggedIn(): boolean {
+        if (this.userId == "-1") return false
+        return true
+    }
 }
