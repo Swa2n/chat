@@ -1,10 +1,10 @@
 import { websocketStartData, messageData } from "../public/components/interface";
 import { socketMessageData, loginRequestData } from "../public/components/interface";
-import { Request } from 'express';
+import { connection } from 'websocket';
+import { Request, Response } from 'express';
 import { user } from "../public/components/user";
 import { userData } from "./serverInterface";
 import jwt from "jsonwebtoken";
-import { connection } from "websocket";
 type Nullable<T> = T | null;
 
 export function findUser(userData: Record<string, userData>, username: string): user | undefined {
@@ -13,7 +13,7 @@ export function findUser(userData: Record<string, userData>, username: string): 
     return FoundIndex?.user;
 }
 
-export function handleLogin(userData: Record<string, userData>, req: Request, jwtKey: string): websocketStartData | socketMessageData {
+export function handleLogin(userData: Record<string, userData>, req: Request, res: Response, jwtKey: string) {
     const body = req.body as loginRequestData;
     const foundUser = findUser(userData, body.username);
 
@@ -28,10 +28,10 @@ export function handleLogin(userData: Record<string, userData>, req: Request, jw
         userData[userId].validSignInToken = token;
         Response = { jwtToken: token, user: foundUser } as websocketStartData
     }
-    return Response;
+    res.status(200).json(Response);
 }
 
-export function handelSignup(allUserData: Record<string, userData>, req: Request, jwtKey: string): websocketStartData | socketMessageData {
+export function handelSignup(allUserData: Record<string, userData>, req: Request, res: Response, jwtKey: string) {
     const body = req.body as loginRequestData;
     const foundUser = findUser(allUserData, body.username);
 
@@ -48,13 +48,15 @@ export function handelSignup(allUserData: Record<string, userData>, req: Request
             validTokenConnection: new Map<string, connection>()
         } as userData;
         const token = jwt.sign(JSON.parse(JSON.stringify(allUserData[userId].user)), jwtKey, {expiresIn: 1})
+        const refreshToken = crypto.randomUUID();
         allUserData[userId].validSignInToken = token;
-        Response = { jwtToken: token, user: allUserData[userId].user } as websocketStartData;
+        res.setHeader('Set-Cookie', `sessionToken=${refreshToken}; Path=/; HttpOnly; Secure; SameSite=Strict`);
+        Response = { jwtToken: token, user: allUserData[userId].user };
     }
-    return Response;
+    res.status(200).json(Response);
 }
 
-export function handleMessage(userData: Record<string, userData>, clientMes: socketMessageData): Nullable<string> {
+export function handleMessage(clientMes: socketMessageData): Nullable<string> {
     if (clientMes.type == "sendMessage") {
         clientMes.data = clientMes.data as messageData;
         const Message: socketMessageData = {

@@ -3,5 +3,6 @@ import { user } from "../public/components/user"
 export interface userData {
     validSignInToken: string,
     validTokenConnection: Map<string, connection>,
+    validRefreshToken: Map<string, connection>,
     user: user
 }

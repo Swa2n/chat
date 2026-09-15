@@ -27,17 +27,18 @@ const wsServer = new WebSocketServer({
 });
 
 app.post('/api/auth/login', async (req: Request, res: Response) => {
-    res.status(200).json(await handleLogin(allUserData, req, jwtKey));
+    await handleLogin(allUserData, req, res, jwtKey);
 })
 
 app.post('/api/auth/signup', async (req: Request, res: Response) => {
-    res.status(200).json(await handelSignup(allUserData, req, jwtKey))
+    const data = await handelSignup(allUserData, req, res, jwtKey);
 })
 
 app.post('/api/auth/refresh', (req: Request, res: Response) => {
     // const refreshToken = req.cookies.refresh_token;
     const body = req.body as refreshTokenData;
     if (!allUserData[body.userId]) {
+        
         return res.status(404).json({ error: "User data not found" });
     }
     const newJwt = jwt.sign(JSON.parse(JSON.stringify(allUserData[body.userId].user)), jwtKey, {expiresIn: 10})
@@ -101,21 +102,22 @@ wsServer.on('request', (request: WSRequest) => {
         catch (err) {
             if (err instanceof jwt.TokenExpiredError) {
                 console.log('Token has expired');
-                connection.send(JSON.stringify({type: "error", data: "expired-token"} as socketMessageData))
+                connection.send(JSON.stringify({type: "error", data: "expired-token"} as socketMessageData));
             }
-            else connection.send(JSON.stringify({type: "error", data: "invalid-token"} as socketMessageData))
+            else connection.send(JSON.stringify({type: "error", data: "invalid-token"} as socketMessageData));
             return;
         }
 
-        const Message = handleMessage(allUserData, clientMes)
+        const Message = handleMessage(clientMes);
 
         if (Message) wsServer.broadcast(Message);
-        else console.log("Invalid client message data: " + message)
+        else console.log("Invalid client message data: " + message);
     });
     
     connection.on('close', function() {
-        const connections = Object.values(allUserData[userId].validTokenConnection)
-        let found = connections.find(fconnection => fconnection == connection)
+        const connections = Object.values(allUserData[userId].validTokenConnection);
+        let found = connections.find(fconnection => fconnection == connection);
+
         found = undefined;
 
         console.log('Peer disconnected.');
