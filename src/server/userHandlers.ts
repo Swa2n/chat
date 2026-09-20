@@ -57,7 +57,7 @@ export function handleSignup(allUserData: Record<string, userData>, req: Request
         } as userData;
         const userData = allUserData[userId];
 
-        const token = jwt.sign(JSON.parse(JSON.stringify(userData.user)), jwtKey, {expiresIn: 5})
+        const token = jwt.sign(JSON.parse(JSON.stringify(userData.user)), jwtKey, {expiresIn: 900})
         const refreshToken = crypto.randomUUID();
         userData.validSignInToken = token;
 

@@ -49,11 +49,13 @@ export class Socket {
         this.connection.onmessage = async (event: MessageEvent): Promise<void> => {
             const messageData = JSON.parse(event.data) as socketMessageData;
             if (messageData.type == "error" && messageData.data == "expired-token") {
+                const token = localStorage.getItem("socketToken");
                 const tokenRequest = await fetch("/api/auth/refresh", {
-                    method: "GET",
+                    method: "POST",
                     headers: {
                         "Content-Type": "application/json"
-                    }
+                    },
+                    body: JSON.stringify({token: token})
                 })
                 const response = await tokenRequest.json()
                 if (response.socketToken) {
@@ -66,17 +68,20 @@ export class Socket {
 
                 const chat = document.getElementById('chat') as HTMLDListElement;
                 console.log(event);
+                
+                const div = document.createElement('div');
 
                 const author = document.createElement('li');
                 author.classList.add("list-inline-item");
                 author.textContent = mesData.author.name + ": ";
-                chat.appendChild(author);
+                div.appendChild(author);
 
                 const message = document.createElement('li');
                 message.classList.add("list-inline-item");
                 message.textContent = mesData.message;
-                chat.appendChild(message);
+                div.appendChild(message);
 
+                chat.appendChild(div);
                 chat.appendChild(document.createElement("br"));
             }
         };

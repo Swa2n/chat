@@ -32,7 +32,7 @@ app.post('/api/auth/signup', async (req: Request, res: Response) => {
     await handleSignup(allUserData, req, res, jwtKey);
 })
 
-app.get('/api/auth/refresh', (req: Request, res: Response) => {
+app.post('/api/auth/refresh', (req: Request, res: Response) => {
     const cookieHeader = req.headers.cookie;
     
     if (!cookieHeader) return res.status(400).json({ type: "error", data: "gng where your cookies???" } as socketMessageData);
@@ -45,7 +45,7 @@ app.get('/api/auth/refresh', (req: Request, res: Response) => {
     const cookieObject = JSON.parse(cookie.split('=')[1]) as headerCookie;
 
     const userId = cookieObject.user.userId;
-    const oldToken = cookieObject.refreshToken;
+    const oldToken = req.body.token;
 
     const userData = allUserData[userId];
     if (!userData)
@@ -72,6 +72,7 @@ app.get('/api/auth/refresh', (req: Request, res: Response) => {
 function originIsAllowed(): boolean { return true; }
 
 wsServer.on('request', (request: WSRequest) => {
+    try {
     if (!originIsAllowed()) {
         request.reject();
         console.log('Connection from origin ' + request.origin + ' rejected.');
@@ -117,10 +118,7 @@ wsServer.on('request', (request: WSRequest) => {
 
         try { jwt.verify(currentActiveToken, jwtKey) } 
         catch (err) {
-            if (err instanceof jwt.TokenExpiredError) {
-                console.log('Token has expired');
-                connection.send(JSON.stringify({type: "error", data: "expired-token"} as socketMessageData));
-            }
+            if (err instanceof jwt.TokenExpiredError) connection.send(JSON.stringify({type: "error", data: "expired-token"} as socketMessageData));
             else connection.send(JSON.stringify({type: "error", data: "invalid-token"} as socketMessageData));
             return;
         }
@@ -136,6 +134,7 @@ wsServer.on('request', (request: WSRequest) => {
         let found = connections.find(fconnection => fconnection == connection);
         found = undefined;
     });
+    } catch (ex) { console.log(ex) }
 });
 
 server.listen(PORT, () => {

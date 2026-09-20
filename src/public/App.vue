@@ -67,6 +67,6 @@ onUnmounted(() => {
   </div>
   <div id="postloginDiv" ref="postloginDiv" class="mainDiv" style="visibility: hidden;">
     <input type="text" ref="messageInput" id="messageInput" class="postlogin" placeholder="Send a message..."/><br>
-    <dl ref="chat" id="chat" class="container mt-5 overflow-auto"></dl>
+    <dl ref="chat" id="chat" class="container mt-5 overflow-auto d-flex flex-column-reverse list-group"></dl>
   </div>
 </template>
