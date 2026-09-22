@@ -12,8 +12,6 @@
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/websocket": "^1.0.10",
-    "@vitejs/plugin-vue": "^6.0.8",
-    "@vitejs/plugin-vue-jsx": "^5.1.6",
     "css-loader": "^7.1.5",
     "npm-run-all2": "^9.0.3",
     "style-loader": "^4.0.0",
@@ -28,12 +26,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "server": "node dist/server.js",
-    "dev": "vite",
-    "build": "npx webpack --no-cache && run-p type-check \"build-only {@}\" -- && cp ./src/index.html ./dist/public",
-    "build-only": "vite build",
+    "build": "npx webpack --no-cache && run-p type-check -- && cp ./src/index.html ./dist/public",
     "test": "ts-node-dev --respawn src/index.ts",
-    "start": "node server.js",
+    "start": "node dist/server.js",
     "type-check": "vue-tsc --build"
   },
   "keywords": [],

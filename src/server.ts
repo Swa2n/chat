@@ -1,10 +1,10 @@
-import { handleMessage, handleLogin, handleSignup } from "./server/userHandlers";
-import express, { Request, Response } from 'express';
-import path from 'path';
-import http from 'http';
-import { socketMessageData } from "./public/components/interface";
+import { handleMessage, handleLogin } from "./server/userHandlers";
+import express, { Request, Response } from "express";
+import path from "path";
+import http from "http";
+import { infomationUpdateData, socketMessageData, user } from "./public/components/interface";
 import { headerCookie, userData } from "./server/serverInterface";
-import { server as WebSocketServer, connection, request as WSRequest } from 'websocket';
+import { server as WebSocketServer, connection, request as WSRequest } from "websocket";
 import jwt from "jsonwebtoken";
 
 const jwtKey: string = crypto.randomUUID();
@@ -16,6 +16,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 const allUserData: Record<string, userData> = {}
+const OnlineUsers: user[] = []
 
 const server = http.createServer(app);
 
@@ -25,11 +26,11 @@ const wsServer = new WebSocketServer({
 });
 
 app.post('/api/auth/login', async (req: Request, res: Response) => {
-    await handleLogin(allUserData, req, res, jwtKey);
+    await handleLogin(allUserData, true, req, res, jwtKey);
 })
 
 app.post('/api/auth/signup', async (req: Request, res: Response) => {
-    await handleSignup(allUserData, req, res, jwtKey);
+    await handleLogin(allUserData, false, req, res, jwtKey);
 })
 
 app.post('/api/auth/refresh', (req: Request, res: Response) => {
@@ -100,18 +101,22 @@ wsServer.on('request', (request: WSRequest) => {
     if (!refreshToken) return request.reject(400, 'Invalid cookies'); 
 
     const connection: connection = request.accept('echo-protocol', request.origin);
-    allUserData[userId].validTokenConnection.set(token, connection)
-    allUserData[userId].validRefreshTokens.set(refreshToken, connection)
+    const userData = allUserData[userId];
+    userData.validTokenConnection.set(token, connection)
+    userData.validRefreshTokens.set(refreshToken, connection)
+
+    OnlineUsers.push(userData.user);
+    wsServer.broadcast(JSON.stringify({ type: "infomationUpdate", data: { onlineUsers: OnlineUsers } as infomationUpdateData} as socketMessageData));
     
     connection.on('message', function(message) {
         if (message.type != "utf8") return;
         const clientMes = JSON.parse(message.utf8Data) as socketMessageData;
 
-        const tokenMap = allUserData[userId].validTokenConnection;
+        const tokenMap = userData.validTokenConnection;
         let currentActiveToken = "";
-        for (const [t, conn] of tokenMap.entries()) {
+        for (const [token, conn] of tokenMap.entries()) {
             if (conn == connection) {
-                currentActiveToken = t;
+                currentActiveToken = token;
                 break;
             }
         }
@@ -125,16 +130,26 @@ wsServer.on('request', (request: WSRequest) => {
 
         const Message = handleMessage(clientMes);
 
-        if (Message) wsServer.broadcast(Message);
-        else console.log("Invalid client message data: " + message);
+        if (Message && clientMes.receiver == "all")
+            wsServer.broadcast(Message);
+        else if (clientMes.receiver == "abs")
+            wsServer.connections.forEach(conn => { if (conn != connection) conn.send(JSON.stringify(clientMes)); });
+        else if (Array.isArray(clientMes.receiver))
+            clientMes.receiver.forEach((id) => 
+                allUserData[id].validTokenConnection.forEach((conn) => conn.send(JSON.stringify(clientMes)))
+            )
+        else console.log("Invalid receiver type: " + clientMes.receiver); 
     });
     
     connection.on('close', function() {
-        const connections = Object.values(allUserData[userId].validTokenConnection);
+        const connections = Object.values(userData.validTokenConnection);
         let found = connections.find(fconnection => fconnection == connection);
         found = undefined;
+        const index = OnlineUsers.findIndex(userr => userr.userId == userData.user.userId);
+        OnlineUsers.splice(index, 1);
+        wsServer.broadcast(JSON.stringify({ type: "infomationUpdate", data: { onlineUsers: OnlineUsers } as infomationUpdateData} as socketMessageData));
     });
-    } catch (ex) { console.log(ex) }
+    } catch (ex) { console.log(ex); }
 });
 
 server.listen(PORT, () => {

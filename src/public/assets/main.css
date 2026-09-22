@@ -1,13 +1,120 @@
-.prelogin {
-  visibility: inherit;
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  user-select: none;
 }
 
-.postlogin {
-  visibility: inherit;
+:root {
+  --bg-color: #f8f9fa;
+  --text-color: #212529;
+  --primary-color: #4f46e5;
+  --card-bg: #ffffff;
+}
+
+html {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  color: var(--text-color);
+  background-color: var(--bg-color);
+  line-height: 1.6;
+}
+
+.container {
+  width: 90%;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+.card {
+  background: var(--card-bg);
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  margin-bottom: 1.5rem;
+}
+
+.btn {
+  display: inline-block;
+  background-color: var(--primary-color);
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  text-decoration: none;
+  font-weight: 600;
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.btn:hover {
+  filter: brightness(90%);
+  transform: translateY(-1px); 
+}
+
+body {
+  overflow: hidden;
+}
+
+#chat {
+  background-color: #292d31;
+  height: 90%;
+  position: absolute;
+  gap: 1px;
+}
+
+#chatDiv {
+  background-color: #292d31;
+  height: 110%;
+  width: 90%;
+}
+
+.chatText {
+  color: #6c7178;
+  font-weight: 400;
+  margin-top: -0.2rem;
+}
+
+#userList {
+  background-color: #3a3d41;
+  height: 100%;
+  position: absolute;
+  width: 19.9%;
+  right: 0px;
+}
+
+.userListDiv {
+  width: 90%;
+  margin-left: 4%;
+  background-color: #44484d;
+  border-radius: 12px;
+  margin-top: 10px;
+}
+
+.userListDivText {
+  margin-left: .5rem;
+}
+
+.userListGroupText {
+  margin-left: 10px;
+  margin-top: 25px;
+  color: gray;
+  font-weight: 400;
+  font-size: small;
+}
+
+.chatElements {
+  width: 60%;
+}
+
+#messageInput {
+  margin-left: 10px;
+  position: relative; 
+  top: 87%;
 }
 
 .mainDiv {
   position: absolute;
   top: 0px;
   left: 0px;
+  height: 100%;
+  width: 100%;
 }

@@ -1,9 +1,22 @@
 import { Socket } from './WebSocket';
 
-export type socketDataType = "initialPayload" | "sendMessage" | "error"
+export type Nullable<T> = T | null;
+export type socketDataType = "sendMessage" | "error" | "offer" | "answer" | "candidate" | "infomationUpdate"
+export type receiverType = "all" | "abs" | string[]
 export interface socketMessageData {
     type: socketDataType,
-    data: messageData | websocketStartData | string
+    receiver: receiverType,
+    data: messageData | websocketStartData | string | rtcData | infomationUpdateData
+}
+
+export interface infomationUpdateData {
+    onlineUsers: Nullable<user[]>
+}
+
+export interface rtcData {
+    userId: string,
+    sdp: RTCSessionDescriptionInit, 
+    can: RTCIceCandidate
 }
 
 export interface refreshTokenData {
@@ -13,7 +26,8 @@ export interface refreshTokenData {
 
 export interface websocketStartData {
     user: user,
-    jwtToken: string
+    jwtToken: string,
+    oldMessages: messageData[]
 }
 
 export interface messageData {
