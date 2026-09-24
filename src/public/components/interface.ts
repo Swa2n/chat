@@ -4,7 +4,6 @@ export type Nullable<T> = T | null;
 export type socketDataType = "sendMessage" | "error" | "offer" | "answer" | "candidate" | "infomationUpdate"
 export type receiverType = "all" | "abs" | string[]
 export interface socketMessageData {
-    type: socketDataType,
     receiver: receiverType,
     data: messageData | websocketStartData | string | rtcData | infomationUpdateData
 }
@@ -28,6 +27,10 @@ export interface websocketStartData {
     user: user,
     jwtToken: string,
     oldMessages: messageData[]
+}
+
+export interface clientMessageData {
+    message: string
 }
 
 export interface messageData {

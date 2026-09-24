@@ -5,8 +5,6 @@ import { Socket } from "./components/WebSocket";
 import { appStartData, rtcData, socketMessageData, user } from "./components/interface";
 import { ref, onMounted, onUnmounted, inject } from 'vue';
 
-const sendMessageToServer = inject<(data: string) => void>('sendMessageToServer');
-
 const emit = defineEmits(['messageSent'])
 
 const count = ref(0);
@@ -26,8 +24,8 @@ function globalHotKey(event: KeyboardEvent) {
 }
 
 async function handleInput() {
-  if (!socket || !messageInput.value || !sendMessageToServer || socket.user.loggedIn) return;
-  sendMessageToServer(messageInput.value?.value);
+  if (!socket || !messageInput.value|| socket.user.loggedIn) return;
+  socket.SendMessage(messageInput.value?.value);
 
   messageInput.value.value = "";
 }

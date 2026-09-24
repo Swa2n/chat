@@ -7,9 +7,6 @@ import 'bootstrap/dist/js/bootstrap.bundle.min.js'
 const ws = new Socket;
 const app = createApp(App);
 
-const sendMessageToServer = (data: string) => { ws.SendMessage(data); }
-app.provide('sendMessageToServer', sendMessageToServer)
-
 app.mount('#app')
 
 window.dispatchEvent(new CustomEvent('AppStart', {

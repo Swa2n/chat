@@ -1,5 +1,5 @@
 import { user, socketMessageData, loginRequestData, websocketStartData, messageData, Nullable } from "../public/components/interface";
-import { connection } from "websocket";
+import { Socket } from "socket.io";
 import { Request, Response } from "express";
 import { userData, headerCookie } from "./serverInterface";
 import jwt from "jsonwebtoken";
@@ -18,8 +18,8 @@ export function handleLogin(allUserData: Record<string, userData>, loginingIn: b
 
     let Response;
     if (loginingIn) //Log in
-        if (!foundUser) Response = { type: "error", data: "user does not exist" } as socketMessageData
-        else if (body.password != foundUser.password) Response = { type: "error", data: "incorrect password" } as socketMessageData
+        if (!foundUser) Response = { data: "user does not exist" }
+        else if (body.password != foundUser.password) Response = { data: "incorrect password" } as socketMessageData
         else {
             const userData = allUserData[foundUser.user.userId];
             const refreshToken = crypto.randomUUID();
@@ -34,17 +34,17 @@ export function handleLogin(allUserData: Record<string, userData>, loginingIn: b
             
             Response = { jwtToken: token, user: foundUser.user } as websocketStartData
         }
-    else //sign up
-        if (!req.body.username.trim()) Response = { type: "error", data: "invalid username" } as socketMessageData;
-        else if (foundUser) Response = { type: "error", data: "user already exists" } as socketMessageData;
+    else
+        if (!req.body.username.trim()) Response = { data: "invalid username" } as socketMessageData;
+        else if (foundUser) Response = { data: "user already exists" } as socketMessageData;
         else {
             const userId: string = crypto.randomUUID();
             allUserData[userId] = {
                 user: new user(userId, req.body.username),
                 password: req.body.password,
                 validSignInToken: "",
-                validRefreshTokens: new Map<string, connection>(),
-                validTokenConnection: new Map<string, connection>()
+                validRefreshTokens: new Map<string, Socket>(),
+                validTokenConnection: new Map<string, Socket>()
             } as userData;
             const userData = allUserData[userId];
 
@@ -64,19 +64,12 @@ export function handleLogin(allUserData: Record<string, userData>, loginingIn: b
     res.status(200).json(Response);
 }
 
-export function handleMessage(clientMes: socketMessageData): Nullable<string> {
-    if (clientMes.type == "sendMessage") {
-        const mesData = clientMes.data as messageData;
-        const Message = {
-            type: "sendMessage",
-            data: {
-                author: mesData.author,
-                message: mesData.message
-            }
-        };
-        messages.push(mesData)
+export function handleMessage(clientMes: messageData, user: user): Nullable<string> {
+    const Message = {
+        author: user,
+        message: clientMes.message
+    };
+    messages.push(Message)
 
-        return JSON.stringify(Message);
-    }
-    return null;
+    return JSON.stringify(Message);
 }
