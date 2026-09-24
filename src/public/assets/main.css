@@ -57,14 +57,16 @@ body {
 #chat {
   background-color: #292d31;
   height: 90%;
+  width: 80.1%;
+  max-width: 100%;
   position: absolute;
   gap: 1px;
 }
 
 #chatDiv {
   background-color: #292d31;
-  height: 110%;
-  width: 90%;
+  height: 111%;
+  width: 100%;
 }
 
 .chatText {
@@ -94,11 +96,10 @@ body {
 }
 
 .userListGroupText {
-  margin-left: 10px;
-  margin-top: 25px;
+  margin-left: 4%;
   color: gray;
   font-weight: 400;
-  font-size: small;
+  font-size: 84%;
 }
 
 .chatElements {
@@ -106,9 +107,13 @@ body {
 }
 
 #messageInput {
-  margin-left: 10px;
+  padding-left: .5%;
+  margin-left: .5%;
   position: relative; 
   top: 87%;
+  background-color: #3f484c;
+  border-radius: 5px;
+  border: aqua;
 }
 
 .mainDiv {

@@ -7,7 +7,7 @@ function addMessage(mes: messageData): void {
     const message = document.createElement('li');
     message.classList.add("list-inline-item", "chatText");
     message.textContent = `${mes.author.name}:  ${mes.message}`;
-    chat.prepend(message, document.createElement("br"));
+    chat.prepend(message);
 }
 
 export class Socket {

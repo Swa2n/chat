@@ -25,13 +25,8 @@ const wsServer = new WebSocketServer({
     autoAcceptConnections: false
 });
 
-app.post('/api/auth/login', async (req: Request, res: Response) => {
-    await handleLogin(allUserData, true, req, res, jwtKey);
-})
-
-app.post('/api/auth/signup', async (req: Request, res: Response) => {
-    await handleLogin(allUserData, false, req, res, jwtKey);
-})
+app.post('/api/auth/login', (req: Request, res: Response) => handleLogin(allUserData, true, req, res, jwtKey))
+app.post('/api/auth/signup', (req: Request, res: Response) => handleLogin(allUserData, false, req, res, jwtKey))
 
 app.post('/api/auth/refresh', (req: Request, res: Response) => {
     const cookieHeader = req.headers.cookie;
@@ -95,9 +90,13 @@ wsServer.on('request', (request: WSRequest) => {
         request.reject(400, 'Invalid sign in data');
         return;
     }
-    const cookie = request.httpRequest.headers.cookie
+    let cookie: string = "null";
+    request.httpRequest.headers.cookie?.split(';').forEach((headCookie) => {
+        if (headCookie.trimStart().startsWith("cookie=")) cookie = headCookie.trim()
+    });
     let refreshToken = "";
-    if (cookie) refreshToken = (JSON.parse(cookie.split('=')[1]) as headerCookie).refreshToken;
+    if (cookie != "null") refreshToken = (JSON.parse(cookie.split('=')[1].split(';')[0]) as headerCookie).refreshToken;
+    else return request.reject(400, 'Invalid cookies');
     if (!refreshToken) return request.reject(400, 'Invalid cookies'); 
 
     const connection: connection = request.accept('echo-protocol', request.origin);
