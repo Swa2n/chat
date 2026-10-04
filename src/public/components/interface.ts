@@ -1,5 +1,3 @@
-import { Socket } from './WebSocket';
-
 export type Nullable<T> = T | null;
 export type socketDataType = "sendMessage" | "error" | "offer" | "answer" | "candidate" | "infomationUpdate"
 export type receiverType = "all" | "abs" | string[]
@@ -12,8 +10,13 @@ export interface infomationUpdateData {
     onlineUsers: Nullable<user[]>
 }
 
+export interface p2pData {
+    data: any,
+    senderUserId: string,
+    recevierIds: string[]
+}
+
 export interface rtcData {
-    userId: string,
     sdp: RTCSessionDescriptionInit, 
     can: RTCIceCandidate
 }
@@ -29,6 +32,11 @@ export interface websocketStartData {
     oldMessages: messageData[]
 }
 
+export interface lastPacketData {
+    location: string,
+    message: object | string
+} 
+
 export interface clientMessageData {
     message: string
 }
@@ -36,10 +44,6 @@ export interface clientMessageData {
 export interface messageData {
     author: user,
     message: string
-}
-
-export interface appStartData {
-    socket: Socket,
 }
 
 export interface loginRequestData {
@@ -57,7 +61,7 @@ export class user {
     }
     
     get loggedIn(): boolean {
-        if (this.userId == "-1") return false
-        return true
+        if (this.userId == "-1") return false;
+        return true;
     }
 }

@@ -1,6 +1,6 @@
-import { connection } from "websocket"
 import { user } from "../public/components/interface"
 import { Socket } from "socket.io"
+
 export interface userData {
     user: user,
     password: string,

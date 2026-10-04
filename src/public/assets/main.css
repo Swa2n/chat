@@ -19,6 +19,12 @@ html {
   line-height: 1.6;
 }
 
+.grid {
+  display: grid;
+  grid-template-columns: auto auto auto;
+  padding: 10px;
+}
+
 .container {
   width: 90%;
   max-width: 1100px;
@@ -87,7 +93,7 @@ body {
   width: 90%;
   margin-left: 4%;
   background-color: #44484d;
-  border-radius: 12px;
+  border-radius: 4px;
   margin-top: 10px;
 }
 
@@ -122,4 +128,87 @@ body {
   left: 0px;
   height: 100%;
   width: 100%;
+}
+
+#callDiv {
+  visibility: hidden;
+  position: absolute;
+  left: 15%;
+  top: 10%;
+  height: 60%;
+  width: 60%;
+}
+
+#videoContainer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-content: center; 
+  gap: 2%;
+  padding: 1%;
+  z-index: 5;
+  height: 100%;
+  width: 100%;
+  border-radius: 30px;
+  border-top-left-radius: 0px;
+  border-top-right-radius: 0px;
+  border-color: #3a3d41;
+  background-color: #3f484c;
+}
+
+#videoContainer:has(> :nth-child(1)) { --cols: 1; }
+#videoContainer:has(> :nth-child(2)) { --cols: 2; }
+#videoContainer:has(> :nth-child(5)) { --cols: 3; }
+#videoContainer:has(> :nth-child(10)) { --cols: 4; }
+#videoContainer:has(> :nth-child(17)) { --cols: 5; }
+#videoContainer:has(> :nth-child(26)) { --cols: 6; } /* max of 42(--cols * (--cols + 1)) */
+
+
+#videoContainer video {
+  flex-basis: calc((100% / var(--cols)) - (4% * (var(--cols) - 1) / var(--cols)));
+  max-width: calc((100% / var(--cols)) - (4% * (var(--cols) - 1) / var(--cols)));
+
+  flex-grow: 1;
+  flex-shrink: 1;
+  aspect-ratio: 16 / 9;
+  border-radius: 15px;
+  transform: translateZ(0);
+  object-fit: cover;
+}
+
+#callBar {
+  height: 5%;
+  width: 100%;
+  background: #484f5e;
+  z-index: 10;
+  position: relative;
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+  display: flex;
+  place-content: end;
+}
+
+#callBar input {
+  aspect-ratio: 1;
+  background: none;
+  border-radius: 100%;
+  color: white;
+  border-color: transparent;
+}
+
+#callBar input:hover {
+  background: #80808036;
+}
+
+#callBar input:active {
+  background: #9191917a;
+}
+
+.callButton {
+  position: absolute;
+  right: 7.5%;
+  background-color: gray;
+  border-radius: 15%;
+  scale: 0.8;
+  margin-top: -.7%;
 }

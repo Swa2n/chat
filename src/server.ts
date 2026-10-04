@@ -2,7 +2,7 @@ import { handleMessage, handleLogin } from "./server/userHandlers";
 import express, { Request, Response } from "express";
 import path from "path";
 import http from "http";
-import { infomationUpdateData, messageData, socketMessageData, user } from "./public/components/interface";
+import { infomationUpdateData, p2pData, user } from "./public/components/interface";
 import { headerCookie, userData } from "./server/serverInterface";
 import { Server as SocketIOServer, Socket } from "socket.io";
 import jwt from "jsonwebtoken";
@@ -58,6 +58,18 @@ app.post('/api/auth/refresh', (req: Request, res: Response) => {
     }
 })
 
+function sendToUsers(userIds: string[], location: string, message: string): boolean {
+    for(const [_, userId] of userIds.entries()) {
+        const user = allUserData[userId];
+        if (user) {
+            user.validTokenConnection.forEach((conn) => conn.emit(location, message));
+            return true;
+        }
+    }
+    console.log(userIds);
+    return false;
+}
+
 io.on('connection', (socket: Socket) => {
     try {
         const query = socket.handshake.query;
@@ -100,7 +112,7 @@ io.on('connection', (socket: Socket) => {
         OnlineUsers.push(userData.user);
         io.emit('update/infomation', JSON.stringify({ onlineUsers: OnlineUsers } as infomationUpdateData ));
 
-        function checkJwt(postFun: Function) {
+        socket.use(([location, message], next) => {
             const tokenMap = userData.validTokenConnection;
             let currentActiveToken = "";
             for (const [token, conn] of tokenMap.entries()) 
@@ -108,18 +120,33 @@ io.on('connection', (socket: Socket) => {
                     currentActiveToken = token;
                     break;
                 }
+            ;
 
             try { jwt.verify(currentActiveToken, jwtKey); } catch (err) {
-                if (err instanceof jwt.TokenExpiredError) socket.emit('error/expired-data');
+                if (err instanceof jwt.TokenExpiredError) return socket.emit('error/expired-data');
+                else return console.log(`somethings up: ${err}`);
             }
-            postFun();
-        }
 
-        socket.on('message/send-message', (message: string) => { checkJwt(() => {
-            io.emit('message/receive-message', handleMessage(JSON.parse(message), userData.user));
-        })});
+            const passOns = [ //put all locations that move from one client to another(like with calls)
+                'call/offer',
+                'call/answer',
+                'call/candidate',
+                'call/hang-up',
+                'call/request'
+            ];
+            if (passOns.includes(location)) {
+                const data: p2pData = JSON.parse(message); 
+                sendToUsers(data.recevierIds, location, JSON.stringify({senderUserId: userId, data: data.data} as p2pData));
+                return;
+            }
+            next();
+        })
 
-        socket.on('disconnect', function() {
+        socket.on('message/send-message', (message: string) =>
+            io.emit('message/receive-message', handleMessage(JSON.parse(message), userData.user))
+        );
+
+        socket.on('disconnect', () => {
             const index = OnlineUsers.findIndex(userr => userr.userId == userData.user.userId);
             if (index !== -1) OnlineUsers.splice(index, 1);
             io.emit('update/infomation', JSON.stringify( { onlineUsers: OnlineUsers } as infomationUpdateData));

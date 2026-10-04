@@ -1,6 +1,7 @@
-import { messageData, socketMessageData, loginRequestData, websocketStartData, rtcData, Nullable, infomationUpdateData, clientMessageData } from "./interface"
+import { messageData, loginRequestData, Nullable, infomationUpdateData, lastPacketData, p2pData } from "./interface"
 import { user } from "./interface";
 import { io, Socket as SocketIo } from "socket.io-client";
+import { Call } from "./rtcConnection";
 
 function addMessage(mes: messageData): void {
     const chat = document.getElementById('chat') as HTMLDListElement;
@@ -13,9 +14,8 @@ function addMessage(mes: messageData): void {
 
 export class Socket {
     public connection: Nullable<SocketIo> = null;
-    public peerConnections: Map<string, RTCPeerConnection> = new Map<string, RTCPeerConnection>;
     private _user: user = new user();
-    private lastSentPacket: object = {};
+    private lastSentPacket: Nullable<lastPacketData> = null;
 
     public async connect(name: string, password: string, logingin: boolean) {
         if (this.connection) return;
@@ -40,31 +40,35 @@ export class Socket {
 
         const login = await accountRequest.json();
         if (login.type && login.type == "error") { 
-            console.log(login.data); 
+            console.log(login.data);
             return; 
         }
 
         this._user = login.user;
+        globalThis.User = this._user;
         login.oldMessages.forEach(addMessage);
         localStorage.setItem("socketToken", login.jwtToken);
 
         const isSecure = window.location.protocol == "https:";
         const protocol = isSecure ? "wss:" : "ws:";
         const socketUrl = `${protocol}//${window.location.host}?userId=${login.user.userId}&token=${login.jwtToken}`;
-        this.connection = io(socketUrl); 
+        this.connection = io(socketUrl);
         this.connection.on('connect', () => { console.log('Connected to the WebSocket server'); });
 
-        this.connection.on('message/receive-message', (event) => addMessage(JSON.parse(event) as messageData))
+        this.connection.on('message/receive-message', (event: string) => addMessage(JSON.parse(event) as messageData))
 
-        this.connection.on('update/infomation', (event) => {
+        this.connection.on('update/infomation', (event: string) => {
             const infoData = JSON.parse(event) as infomationUpdateData;
             if (infoData.onlineUsers) {
-                (document.getElementById("onlineUserList") as HTMLElement).replaceChildren();
+                (document.getElementById("onlineUserList") as HTMLElement).innerHTML = "";
                 (document.getElementById("onlineNumber") as HTMLSpanElement).textContent = infoData.onlineUsers.length.toString();
                 infoData.onlineUsers.forEach((user) => {
                     const clone = document.getElementById("list_clone")?.cloneNode(true) as HTMLDivElement;
                     Array.from(clone.children).forEach((element) => {
                         if (element.id == "name") element.textContent = user.name;
+                        else if (element.id == "call")
+                            if (user.userId != this._user.userId) element.addEventListener('click', () => this.startCall([user.userId]));
+                            else element.remove();
                     });
                     clone.id = `list:${user.userId}`;
                     document.getElementById("onlineUserList")?.append(clone)
@@ -72,7 +76,7 @@ export class Socket {
             }
         })
 
-        this.connection.on('error', (event) => console.log(event));
+        this.connection.on('error', (event: string) => console.log(JSON.parse(event)));
 
         this.connection.on('error/expired-data', async () => {
             const token = localStorage.getItem("socketToken");
@@ -88,31 +92,22 @@ export class Socket {
                 localStorage.setItem("socketToken", response.socketToken);
                 console.log("New token got!");
             }
-            this.connection?.send(JSON.stringify(this.lastSentPacket));
+            if (this.lastSentPacket)
+            this.connection?.emit(this.lastSentPacket.location, JSON.stringify(this.lastSentPacket.message));
         })
 
-        this.connection.on('call/offer', (event: rtcData) => {
-            const offerDesc = new RTCSessionDescription({type: event.sdp.type, sdp: event.sdp.sdp} as RTCSessionDescriptionInit);
-
-            this.createP2pConnection(event.userId)
-            .then((p2pConn) => {
-                p2pConn.setRemoteDescription(offerDesc);
-                p2pConn.createAnswer()
-                .then((answer) => p2pConn.setLocalDescription(answer))
-                .then(() => this.connection?.send(JSON.stringify({ type: "answer", receiver: [event.userId], data: { sdp: p2pConn.localDescription, userId: this._user.userId }})));
-            }); 
+        this.connection.on('call/request', async (message: string) => {
+            const event = JSON.parse(message);
+            // Add code here to ask client accept
+            globalThis.Call = new Call();
+            await globalThis.StartUserCamera();
+            globalThis.Call.startCall(event.senderUserId);
         })
 
-        this.connection.on('call/answer', (event: rtcData) => {
-            const answerDesc = new RTCSessionDescription(event.sdp);
-            const p2pAnswerConnection = this.peerConnections.get(event.userId);
-            p2pAnswerConnection?.setRemoteDescription(answerDesc).catch(window.reportError);
-        })
-
-        this.connection.on('call/candidate', (event: rtcData) => {
-            const candidate = new RTCIceCandidate(event.can);
-            this.peerConnections.get(event.userId)?.addIceCandidate(candidate).catch(window.reportError);
-        })
+        this.connection?.on('call/offer', async (message) => {
+            await globalThis.StartUserCamera();
+			globalThis.Call.offer(message)
+		});
 
         this.connection.on('connect_error', (err: Error) => console.error(err));
 
@@ -120,39 +115,21 @@ export class Socket {
         (document.getElementById("postloginDiv") as HTMLElement).style.visibility = "visible";
     }
 
-    get user(): user { return this._user; }
+    get user(): user { return structuredClone(this._user); }
+
+    public SendPacket(location: string, receivers: string[] = [], message: object = {}) {
+        this.connection?.emit(location, JSON.stringify({data: message, recevierIds: receivers}));
+        this.lastSentPacket = {location: location, message: message} as lastPacketData;
+    }
 
     public SendMessage(text: string): void {
         if (!this.connection) return;
         text = text.trim();
-        if (text && this.connection.connected) {
-            const data: clientMessageData = { message: text };
-            this.connection.emit('message/send-message', JSON.stringify(data));
-            this.lastSentPacket = data;
-        } else console.log('WebSocket is not connected.');
+        if (text && this.connection.connected) this.SendPacket('message/send-message', [], { message: text });
     }
 
-    public async createP2pConnection(userId: string): Promise<RTCPeerConnection> {
-        const settings: RTCConfiguration = {iceServers: [{ urls: 'stun:stun.l.google.com:19302'}]}
-        const p2pConnection = new RTCPeerConnection(settings);
-        const webcam = document.getElementById("webcam") as HTMLVideoElement;
-        const stream = webcam?.srcObject as MediaStream;
-        stream.getTracks().forEach((track) => { p2pConnection.addTrack(track, stream) });
-        p2pConnection.onicecandidate = ((event) => {
-            this.connection?.send(JSON.stringify({ type: "candidate", receiver: [userId], data: { can: event.candidate, userId: this._user.userId } }))
-        });
-        p2pConnection.ontrack = ((event) => {
-            (document.getElementById("farawayland") as HTMLVideoElement).srcObject = event.streams[0];
-        })
-        p2pConnection.removeTrack = (() => {
-            const stream = (document.getElementById("farawayland") as HTMLVideoElement).srcObject as MediaStream;
-            const trackList = stream.getTracks();
-
-            if (trackList.length != 0) return;
-            p2pConnection.close();
-            this.peerConnections.delete(userId);
-        })
-        this.peerConnections.set(userId, p2pConnection);
-        return p2pConnection;
+    public async startCall(userIds: string[]) {
+        userIds.forEach((userId) => this.SendPacket('call/request', [userId]));
+        globalThis.Call = new Call();
     }
 }

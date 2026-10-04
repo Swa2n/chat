@@ -14,3 +14,5 @@ window.dispatchEvent(new CustomEvent('AppStart', {
         socket: ws
     }
 }));
+
+globalThis.Socket = ws

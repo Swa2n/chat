@@ -1,4 +1,4 @@
-import { user, socketMessageData, loginRequestData, websocketStartData, messageData, Nullable } from "../public/components/interface";
+import { user, loginRequestData, websocketStartData, messageData, Nullable } from "../public/components/interface";
 import { Socket } from "socket.io";
 import { Request, Response } from "express";
 import { userData, headerCookie } from "./serverInterface";
@@ -18,8 +18,8 @@ export function handleLogin(allUserData: Record<string, userData>, loginingIn: b
 
     let Response;
     if (loginingIn) //Log in
-        if (!foundUser) Response = { data: "user does not exist" }
-        else if (body.password != foundUser.password) Response = { data: "incorrect password" } as socketMessageData
+        if (!foundUser) Response = { type: "error", data: "user does not exist" }
+        else if (body.password != foundUser.password) Response = { type: "error", data: "incorrect password" }
         else {
             const userData = allUserData[foundUser.user.userId];
             const refreshToken = crypto.randomUUID();
@@ -35,8 +35,8 @@ export function handleLogin(allUserData: Record<string, userData>, loginingIn: b
             Response = { jwtToken: token, user: foundUser.user } as websocketStartData
         }
     else
-        if (!req.body.username.trim()) Response = { data: "invalid username" } as socketMessageData;
-        else if (foundUser) Response = { data: "user already exists" } as socketMessageData;
+        if (!req.body.username.trim()) Response = { type: "error", data: "invalid username" };
+        else if (foundUser) Response = { type: "error", data: "user already exists" };
         else {
             const userId: string = crypto.randomUUID();
             allUserData[userId] = {
