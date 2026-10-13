@@ -1,8 +1,8 @@
-import { handleMessage, handleLogin } from "./server/userHandlers";
+import { handleMessage, handleLogin, changeProfile } from "./server/userHandlers";
 import express, { Request, Response } from "express";
 import path from "path";
 import http from "http";
-import { infomationUpdateData, p2pData, user } from "./public/components/interface";
+import { infomationUpdateData, profilePartsRequest, socketMesData, user } from "./public/components/interface";
 import { headerCookie, userData } from "./server/serverInterface";
 import { Server as SocketIOServer, Socket } from "socket.io";
 import jwt from "jsonwebtoken";
@@ -15,18 +15,21 @@ const PORT: number = 3000;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-const allUserData: Record<string, userData> = {}
+globalThis.sentMessages = [{author: new user(), message: "", messageId: "-1"}]
+const allUserData = globalThis.allUserData = {} as Record<string, userData>
 const OnlineUsers: user[] = []
 
 const server = http.createServer(app);
-const io = new SocketIOServer(server);
+const io = new SocketIOServer(server, {
+  maxHttpBufferSize: 1e7
+});
 
-app.post('/api/auth/login', (req: Request, res: Response) => handleLogin(allUserData, true, req, res, jwtKey))
-app.post('/api/auth/signup', (req: Request, res: Response) => handleLogin(allUserData, false, req, res, jwtKey))
+app.post('/api/auth/login', (req: Request, res: Response) => handleLogin(true, req, res, jwtKey))
+app.post('/api/auth/signup', (req: Request, res: Response) => handleLogin(false, req, res, jwtKey))
 
 app.post('/api/auth/refresh', (req: Request, res: Response) => {
     const cookieHeader = req.headers.cookie;
-        
+
     if (!cookieHeader) return res.status(400).json({ type: "error", data: "gng where your cookies???" });
 
     const cookieHead = cookieHeader.split(';').map(c => c.trim());
@@ -46,10 +49,10 @@ app.post('/api/auth/refresh', (req: Request, res: Response) => {
     const tokenConnection = tokenMap.get(oldToken);
 
     if (tokenConnection && allUserData[userId].validRefreshTokens.get(cookieObject.refreshToken) == tokenConnection) {
-        const newJwt = jwt.sign(JSON.parse(JSON.stringify(allUserData[userId].user)), jwtKey, {expiresIn: 900});
+        const newJwt = jwt.sign(JSON.parse(JSON.stringify(allUserData[userId].user)), jwtKey, { expiresIn: 900 });
         tokenMap.set(newJwt, tokenConnection);
         tokenMap.delete(oldToken);
-        
+
         return res.status(200).json({
             socketToken: newJwt
         });
@@ -59,14 +62,13 @@ app.post('/api/auth/refresh', (req: Request, res: Response) => {
 })
 
 function sendToUsers(userIds: string[], location: string, message: string): boolean {
-    for(const [_, userId] of userIds.entries()) {
+    for (const [_, userId] of userIds.entries()) {
         const user = allUserData[userId];
         if (user) {
-            user.validTokenConnection.forEach((conn) => conn.emit(location, message));
+            user.validTokenConnection.forEach(conn => conn.emit(location, message));
             return true;
         }
     }
-    console.log(userIds);
     return false;
 }
 
@@ -76,17 +78,11 @@ io.on('connection', (socket: Socket) => {
         const userId = query.userId as string;
         const token = query.token as string;
 
-        if (!token || !userId) {
-            socket.disconnect(true);
-            return;
-        }
+        if (!token || !userId) return socket.disconnect(true);
 
         const allUsers = Object.values(allUserData);
         const FoundIndex = allUsers.find(user => user.user.userId == userId);
-        if (!FoundIndex || FoundIndex.validSignInToken != token) {
-            socket.disconnect(true);
-            return;
-        }
+        if (!FoundIndex || FoundIndex.validSignInToken != token) return socket.disconnect(true);
 
         const cookieHeader = socket.handshake.headers.cookie;
         let cookie: string = "null";
@@ -95,14 +91,8 @@ io.on('connection', (socket: Socket) => {
 
         let refreshToken = "";
         if (cookie != "null") refreshToken = (JSON.parse(cookie.split('=')[1].split(';')[0]) as headerCookie).refreshToken;
-        else {
-            socket.disconnect(true);
-            return;
-        }
-        if (!refreshToken) {
-            socket.disconnect(true);
-            return;
-        }
+        else return socket.disconnect(true);
+        if (!refreshToken) return socket.disconnect(true);
 
         const userData = allUserData[userId];
 
@@ -110,17 +100,15 @@ io.on('connection', (socket: Socket) => {
         userData.validRefreshTokens.set(refreshToken, socket as any);
 
         OnlineUsers.push(userData.user);
-        io.emit('update/infomation', JSON.stringify({ onlineUsers: OnlineUsers } as infomationUpdateData ));
+        io.emit('update/infomation', JSON.stringify({ onlineUsers: OnlineUsers } as infomationUpdateData));
 
         socket.use(([location, message], next) => {
             const tokenMap = userData.validTokenConnection;
             let currentActiveToken = "";
-            for (const [token, conn] of tokenMap.entries()) 
-                if (conn == socket) {
-                    currentActiveToken = token;
-                    break;
-                }
-            ;
+            for (const [token, conn] of tokenMap.entries()) if (conn == socket) {
+                currentActiveToken = token;
+                break;
+            };
 
             try { jwt.verify(currentActiveToken, jwtKey); } catch (err) {
                 if (err instanceof jwt.TokenExpiredError) return socket.emit('error/expired-data');
@@ -135,26 +123,29 @@ io.on('connection', (socket: Socket) => {
                 'call/request'
             ];
             if (passOns.includes(location)) {
-                const data: p2pData = JSON.parse(message); 
-                sendToUsers(data.recevierIds, location, JSON.stringify({senderUserId: userId, data: data.data} as p2pData));
-                return;
+                const data: socketMesData = JSON.parse(message);
+                return sendToUsers(data.recevierIds, location, JSON.stringify({ senderUserId: userId, data: data.data } as socketMesData));
             }
             next();
         })
 
-        socket.on('message/send-message', (message: string) =>
-            io.emit('message/receive-message', handleMessage(JSON.parse(message), userData.user))
-        );
+        socket.on('message/send-message', (packet: string) =>
+            io.emit('message/receive-message', handleMessage((JSON.parse(packet) as socketMesData).data, userData.user)));
+
+        socket.on('profile/change', packet => changeProfile(packet, userId))
+        socket.on('profile/get', (packet, callBack) => { try {
+            const mes = JSON.parse(packet) as profilePartsRequest;
+            callBack(JSON.stringify(allUserData[mes.userId].style.picture));
+            } catch (err) { console.log(err) }
+        })
 
         socket.on('disconnect', () => {
             const index = OnlineUsers.findIndex(userr => userr.userId == userData.user.userId);
             if (index !== -1) OnlineUsers.splice(index, 1);
-            io.emit('update/infomation', JSON.stringify( { onlineUsers: OnlineUsers } as infomationUpdateData));
+            io.emit('update/infomation', JSON.stringify({ onlineUsers: OnlineUsers } as infomationUpdateData));
         });
 
-    } catch (ex) { 
-        console.log(ex); 
-    }
+    } catch (ex) { console.log(ex); }
 });
 
 server.listen(PORT, () => {

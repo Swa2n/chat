@@ -1,16 +1,11 @@
 export type Nullable<T> = T | null;
 export type socketDataType = "sendMessage" | "error" | "offer" | "answer" | "candidate" | "infomationUpdate"
-export type receiverType = "all" | "abs" | string[]
-export interface socketMessageData {
-    receiver: receiverType,
-    data: messageData | websocketStartData | string | rtcData | infomationUpdateData
-}
 
 export interface infomationUpdateData {
     onlineUsers: Nullable<user[]>
 }
 
-export interface p2pData {
+export interface socketMesData {
     data: any,
     senderUserId: string,
     recevierIds: string[]
@@ -29,7 +24,7 @@ export interface refreshTokenData {
 export interface websocketStartData {
     user: user,
     jwtToken: string,
-    oldMessages: messageData[]
+    oldMessages: [messageData]
 }
 
 export interface lastPacketData {
@@ -43,12 +38,22 @@ export interface clientMessageData {
 
 export interface messageData {
     author: user,
-    message: string
+    message: string,
+    messageId: string,
 }
 
 export interface loginRequestData {
     username: string,
     password: string
+}
+
+export interface profileParts {
+    picture: Nullable<Uint8Array>
+}
+
+export interface profilePartsRequest {
+    userId: string,
+    picture: boolean
 }
 
 export class user {

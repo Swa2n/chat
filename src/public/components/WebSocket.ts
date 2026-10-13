@@ -1,16 +1,8 @@
-import { messageData, loginRequestData, Nullable, infomationUpdateData, lastPacketData, p2pData } from "./interface"
+import { messageData, loginRequestData, Nullable, infomationUpdateData, lastPacketData, socketMesData, profileParts } from "./interface"
 import { user } from "./interface";
 import { io, Socket as SocketIo } from "socket.io-client";
 import { Call } from "./rtcConnection";
-
-function addMessage(mes: messageData): void {
-    const chat = document.getElementById('chat') as HTMLDListElement;
-
-    const message = document.createElement('li');
-    message.classList.add("list-inline-item", "chatText");
-    message.textContent = `${mes.author.name}:  ${mes.message}`;
-    chat.prepend(message);
-}
+import { addMessage } from "./messageHandler";
 
 export class Socket {
     public connection: Nullable<SocketIo> = null;
@@ -99,14 +91,30 @@ export class Socket {
         this.connection.on('call/request', async (message: string) => {
             const event = JSON.parse(message);
             // Add code here to ask client accept
-            globalThis.Call = new Call();
+			if (globalThis.Call) return console.warn("User already in call"); //prob just give user option to decline or accept
+            globalThis.Call = new Call(1);
             await globalThis.StartUserCamera();
-            globalThis.Call.startCall(event.senderUserId);
+            await globalThis.Call.startCall(event.senderUserId);
+
+			let interval: NodeJS.Timeout;
+			globalThis.Call.addCallBack(() => { clearInterval(interval);
+				interval = setInterval(() => {
+					if (!globalThis.Call) { if (interval) clearInterval(interval);
+						return;
+					}
+					if (globalThis.Call.alone) { clearInterval(interval);
+						globalThis.Call.endCall();
+						// Add smth here to tell the user that they have been alone for too long
+						return;
+					}
+				}, (5 * 60000)); //time(in minutes) * (minute -> ms)
+			})
         })
 
         this.connection?.on('call/offer', async (message) => {
+			if (!globalThis.Call) return console.warn(`User ${(JSON.parse(message) as socketMesData).senderUserId} has offered out of order.`);
             await globalThis.StartUserCamera();
-			globalThis.Call.offer(message)
+			await globalThis.Call.offer(message);
 		});
 
         this.connection.on('connect_error', (err: Error) => console.error(err));
@@ -117,7 +125,7 @@ export class Socket {
 
     get user(): user { return structuredClone(this._user); }
 
-    public SendPacket(location: string, receivers: string[] = [], message: object = {}) {
+    public SendPacket(location: string, message: object = {}, receivers: string[] = []) {
         this.connection?.emit(location, JSON.stringify({data: message, recevierIds: receivers}));
         this.lastSentPacket = {location: location, message: message} as lastPacketData;
     }
@@ -125,11 +133,45 @@ export class Socket {
     public SendMessage(text: string): void {
         if (!this.connection) return;
         text = text.trim();
-        if (text && this.connection.connected) this.SendPacket('message/send-message', [], { message: text });
+        if (text && this.connection.connected) this.SendPacket('message/send-message', { message: text }, []);
     }
 
     public async startCall(userIds: string[]) {
-        userIds.forEach((userId) => this.SendPacket('call/request', [userId]));
-        globalThis.Call = new Call();
+		if (globalThis.Call) return console.warn("User already in call");
+        userIds.forEach((userId) => this.SendPacket('call/request', {}, [userId]));
+        globalThis.Call = new Call(1);
+    }
+
+    public async changeProfile() {
+        const image = document.getElementById("fasd") as HTMLInputElement;
+        const file = new File([(image.files as FileList)[0]], "profile.webp")
+        
+        const img = new Image();
+        img.src = URL.createObjectURL(file);
+        
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+
+            const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
+            ctx.drawImage(img, 0, 0);
+            
+            canvas.toBlob(async (blob) => {
+                URL.revokeObjectURL(img.src);this._user.userId
+                if (!blob) return new Error('Conversion failed');
+                
+                const webpName = "profile.webp";
+                const webpFile = new File([blob], webpName, { type: 'image/webp' });
+                
+                this.SendPacket('profile/change', {picture: new Uint8Array(await webpFile.arrayBuffer())} as profileParts);
+            }, 'image/webp');
+        };
+    }
+    public async getProfile(userId: string): Promise<string> {
+        const raw: Object = JSON.parse(await this.connection?.emitWithAck('profile/get', JSON.stringify({userId: userId})));
+        const uint = Uint8Array.from(Object.values(raw));
+        const url = URL.createObjectURL(new Blob([uint], { type: 'image/webp'}));
+        return url;
     }
 }

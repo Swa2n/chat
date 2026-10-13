@@ -6,7 +6,7 @@
 }
 
 :root {
-  --bg-color: #f8f9fa;
+  --bg-color: #f8f9fa;  
   --text-color: #212529;
   --primary-color: #4f46e5;
   --card-bg: #ffffff;
@@ -56,17 +56,16 @@ html {
   transform: translateY(-1px); 
 }
 
-body {
-  overflow: hidden;
-}
+body { overflow: hidden; }
 
 #chat {
   background-color: #292d31;
-  height: 90%;
+  height: 86%;
   width: 80.1%;
   max-width: 100%;
-  position: absolute;
+  position: absolute; 
   gap: 1px;
+  list-style-type: none;
 }
 
 #chatDiv {
@@ -75,10 +74,37 @@ body {
   width: 100%;
 }
 
-.chatText {
+.chatLi {
   color: #6c7178;
   font-weight: 400;
-  margin-top: -0.2rem;
+  margin-bottom: .5%;
+  flex-wrap: wrap;
+  display: flex;
+  place-content: flex-start;
+  flex-direction: column;
+}
+
+.chatLi img {
+  position: absolute;
+  aspect-ratio: 1 / 1;
+  width: 4.216%;
+  border-radius: 100%;
+}
+
+.chatLi span { /*Name*/
+  position: relative;
+  left: 4.7%;
+  color: white;
+  font-size: 2vh;
+}
+
+.chatLi > :nth-child(n+3) { /*Text*/
+  position: relative;
+  left: 4.9%;
+  color: #747474;
+  font-size: 1.9vh;
+  max-width: 92%;
+  margin-top: -.5%;
 }
 
 #userList {
@@ -97,9 +123,7 @@ body {
   margin-top: 10px;
 }
 
-.userListDivText {
-  margin-left: .5rem;
-}
+.userListDivText { margin-left: .5rem; }
 
 .userListGroupText {
   margin-left: 4%;
@@ -108,9 +132,7 @@ body {
   font-size: 84%;
 }
 
-.chatElements {
-  width: 60%;
-}
+.chatElements { width: 60%; }
 
 #messageInput {
   padding-left: .5%;
@@ -121,6 +143,20 @@ body {
   border-radius: 5px;
   border: aqua;
 }
+
+#groupCallButton {
+  position: relative;
+  top: 87%;
+  width: 17.5%;
+  background-color: #3f484c;
+  border-radius: 5px;
+  border: aqua;
+  margin-left: 1.11%;
+  color: #747474;
+}
+
+#groupCallButton:hover { background-color: #394043; }
+#groupCallButton:active { background-color: #33393b; }
 
 .mainDiv {
   position: absolute;
